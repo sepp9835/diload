@@ -1,55 +1,58 @@
-<script>
-const USER = "sepp9835";
-const REPO = "diload";
-const TOKEN = "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"; // Keep secret in GitHub, not real users
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Diload Uploader</title>
+  <style>
+    body {
+      background: #0d1117;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #drop {
+      border: 2px dashed #444;
+      padding: 40px;
+      cursor: pointer;
+      text-align: center;
+    }
+    textarea {
+      width: 100%;
+      margin-top: 10px;
+      height: 120px;
+    }
+  </style>
+</head>
+<body>
+<div>
+  <h1>Diload Uploader</h1>
+  <div id="drop">Drop file or click</div>
+  <input type="file" id="fileInput" hidden>
+  <textarea id="output" readonly>⚠️ File uploads need backend workflow to work safely.</textarea>
+</div>
 
+<script>
 const drop = document.getElementById("drop");
 const input = document.getElementById("fileInput");
 const output = document.getElementById("output");
 
 drop.onclick = () => input.click();
 drop.ondragover = e => e.preventDefault();
-drop.ondrop = e => { e.preventDefault(); upload(input.files[0]); };
-input.onchange = () => upload(input.files[0]);
+drop.ondrop = e => { e.preventDefault(); handleFile(input.files[0]); };
+input.onchange = () => handleFile(input.files[0]);
 
-async function upload(file) {
-  const reader = new FileReader();
-  reader.onload = async () => {
-    const base64 = reader.result.split(",")[1];
-    output.value = `Uploading "${file.name}"...\n`;
-
-    const payload = {
-      message: `Upload ${file.name}`,
-      branch: "uploads",
-      content: base64,
-      path: file.name
-    };
-
-    try {
-      const response = await fetch(`https://api.github.com/repos/${USER}/${REPO}/contents/${file.name}`, {
-        method: "PUT",
-        headers: {
-          "Authorization": `token ${TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      console.log(data);
-
-      if (response.status === 201 || response.status === 200) {
-        output.value += "✅ File committed to uploads branch. GitHub Action will move it to /files.\n";
-        output.value += `Direct download link (after workflow): https://${USER}.github.io/${REPO}/files/${file.name}`;
-      } else {
-        output.value += `❌ Error: ${JSON.stringify(data)}`;
-      }
-    } catch (err) {
-      console.error(err);
-      output.value += `❌ Error: ${err}`;
-    }
-  };
-
-  reader.readAsDataURL(file);
+function handleFile(file) {
+  if (!file) return;
+  output.value = `✅ Selected file: ${file.name}\n`;
+  output.value += "⚠️ Uploading from browser directly is disabled due to GitHub security.\n";
+  output.value += "Please use the workflow that moves files from 'uploads' branch → '/files/' on main.\n";
+  output.value += "Once workflow runs, your file will be available at:\n";
+  output.value += `https://sepp9835.github.io/diload/files/${file.name}`;
+  console.log("File selected:", file.name);
 }
 </script>
+</body>
+</html>
