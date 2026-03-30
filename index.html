@@ -151,6 +151,7 @@
             font-size: 14px;
             color: #333;
             font-family: monospace;
+            word-break: break-all;
         }
 
         .copy-btn {
@@ -255,7 +256,7 @@
         </div>
 
         <div class="info-box">
-            <strong>How it works:</strong> Your file is converted to a data URL that embeds the entire file. This link works anywhere and doesn't require external hosting. Note: For very large files (>50MB), the link may be impractical due to length.
+            <strong>How it works:</strong> Your file is converted to a data URL that embeds the entire file. This link works anywhere and doesn't require external hosting. Simply copy and share the link - when someone opens it, the file downloads automatically!
         </div>
     </div>
 
@@ -306,43 +307,41 @@
                 const dataUrl = e.target.result;
                 
                 // Display file info
-                fileInfo.innerHTML = `
-                    <div class="file-icon">📄</div>
-                    <div class="file-details">
-                        <div class="file-name">${file.name}</div>
-                        <div class="file-size">${formatFileSize(file.size)}</div>
-                    </div>
-                `;
+                const fileIconDiv = document.createElement('div');
+                fileIconDiv.className = 'file-icon';
+                fileIconDiv.textContent = '📄';
                 
-                // Create download link
-                const downloadLink = createDownloadLink(dataUrl, file.name);
-                linkInput.value = downloadLink;
+                const fileDetailsDiv = document.createElement('div');
+                fileDetailsDiv.className = 'file-details';
+                
+                const fileNameDiv = document.createElement('div');
+                fileNameDiv.className = 'file-name';
+                fileNameDiv.textContent = file.name;
+                
+                const fileSizeDiv = document.createElement('div');
+                fileSizeDiv.className = 'file-size';
+                fileSizeDiv.textContent = formatFileSize(file.size);
+                
+                fileDetailsDiv.appendChild(fileNameDiv);
+                fileDetailsDiv.appendChild(fileSizeDiv);
+                
+                fileInfo.innerHTML = '';
+                fileInfo.appendChild(fileIconDiv);
+                fileInfo.appendChild(fileDetailsDiv);
+                
+                // Create download link with proper filename
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = file.name;
+                const downloadUrl = link.href;
+                
+                linkInput.value = downloadUrl;
                 
                 // Show result area
                 resultArea.classList.add('show');
             };
             
             reader.readAsDataURL(file);
-        }
-
-        function createDownloadLink(dataUrl, filename) {
-            // Create an HTML page that auto-downloads the file
-            const html = `<!DOCTYPE html>
-<html>
-<head><title>Download ${filename}</title></head>
-<body>
-<script>
-const link = document.createElement('a');
-link.href = '${dataUrl}';
-link.download = '${filename}';
-document.body.appendChild(link);
-link.click();
-</script>
-<p>Your download should start automatically. If not, <a href="${dataUrl}" download="${filename}">click here</a>.</p>
-</body>
-</html>`;
-            
-            return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
         }
 
         function formatFileSize(bytes) {
@@ -354,22 +353,38 @@ link.click();
         }
 
         // Copy button
-        copyBtn.addEventListener('click', () => {
-            linkInput.select();
-            document.execCommand('copy');
-            
-            copyBtn.textContent = 'Copied!';
-            copyBtn.classList.add('copied');
-            
-            setTimeout(() => {
-                copyBtn.textContent = 'Copy';
-                copyBtn.classList.remove('copied');
-            }, 2000);
+        copyBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(linkInput.value);
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                // Fallback for older browsers
+                linkInput.select();
+                document.execCommand('copy');
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            }
         });
 
         // Test download button
         downloadBtn.addEventListener('click', () => {
-            window.open(linkInput.value, '_blank');
+            const link = document.createElement('a');
+            link.href = linkInput.value;
+            link.download = fileInfo.querySelector('.file-name').textContent;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         });
 
         // New file button
