@@ -22,7 +22,7 @@
     textarea {
       width: 100%;
       margin-top: 10px;
-      height: 70px;
+      height: 80px;
     }
   </style>
 </head>
@@ -35,38 +35,49 @@
 </div>
 
 <script>
-const API = "https://YOUR-WORKER.your-subdomain.workers.dev";
+const USER = "YOUR_USERNAME";
+const REPO = "YOUR_REPO";
+const TOKEN = "YOUR_TOKEN";
 
 const drop = document.getElementById("drop");
 const input = document.getElementById("fileInput");
 const output = document.getElementById("output");
 
 drop.onclick = () => input.click();
-
+drop.ondragover = e => e.preventDefault();
 drop.ondrop = e => {
   e.preventDefault();
-  handleFile(e.dataTransfer.files[0]);
+  upload(e.dataTransfer.files[0]);
 };
+input.onchange = () => upload(input.files[0]);
 
-drop.ondragover = e => e.preventDefault();
+function upload(file) {
+  const reader = new FileReader();
 
-input.onchange = () => handleFile(input.files[0]);
+  reader.onload = async () => {
+    const base64 = reader.result.split(",")[1];
 
-async function handleFile(file) {
-  output.value = "Uploading...";
+    output.value = "Uploading...";
 
-  // Step 1: get upload URL
-  const res = await fetch(API + "/upload");
-  const data = await res.json();
+    await fetch(`https://api.github.com/repos/${USER}/${REPO}/dispatches`, {
+      method: "POST",
+      headers: {
+        "Authorization": "token " + TOKEN,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        event_type: "upload-file",
+        client_payload: {
+          name: file.name,
+          content: base64
+        }
+      })
+    });
 
-  // Step 2: upload file
-  await fetch(API + data.uploadURL, {
-    method: "PUT",
-    body: file
-  });
+    output.value = `https://${USER}.github.io/${REPO}/files/${file.name}`;
+  };
 
-  // Step 3: output download link
-  output.value = API + data.fileURL;
+  reader.readAsDataURL(file);
 }
 </script>
 
