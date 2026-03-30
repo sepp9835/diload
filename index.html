@@ -178,6 +178,29 @@
             background: #48bb78;
         }
 
+        .loading-text {
+            text-align: center;
+            color: #667eea;
+            font-size: 14px;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+
+        .link-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .link-label .status {
+            font-size: 16px;
+        }
+
         .download-btn {
             width: 100%;
             background: #764ba2;
@@ -246,8 +269,11 @@
         <div class="result-area" id="resultArea">
             <div class="file-info" id="fileInfo"></div>
             
+            <div class="link-label" id="linkLabel">
+                <span class="status">⏳</span> Generating short link...
+            </div>
             <div class="link-box">
-                <input type="text" class="link-input" id="linkInput" readonly />
+                <input type="text" class="link-input" id="linkInput" readonly placeholder="Shortening link..." />
                 <button class="copy-btn" id="copyBtn">Copy</button>
             </div>
 
@@ -266,9 +292,14 @@
         const resultArea = document.getElementById('resultArea');
         const fileInfo = document.getElementById('fileInfo');
         const linkInput = document.getElementById('linkInput');
+        const linkLabel = document.getElementById('linkLabel');
         const copyBtn = document.getElementById('copyBtn');
         const downloadBtn = document.getElementById('downloadBtn');
         const newFileBtn = document.getElementById('newFileBtn');
+
+        let currentFileName = '';
+        let currentDataUrl = '';
+        let fullDownloadLink = '';
 
         // Click to browse
         dropZone.addEventListener('click', () => fileInput.click());
@@ -300,11 +331,12 @@
             }
         });
 
-        function handleFile(file) {
+        async function handleFile(file) {
+            currentFileName = file.name;
             const reader = new FileReader();
             
-            reader.onload = (e) => {
-                const dataUrl = e.target.result;
+            reader.onload = async (e) => {
+                currentDataUrl = e.target.result;
                 
                 // Display file info
                 const fileIconDiv = document.createElement('div');
@@ -329,19 +361,55 @@
                 fileInfo.appendChild(fileIconDiv);
                 fileInfo.appendChild(fileDetailsDiv);
                 
-                // Create download link with proper filename
-                const link = document.createElement('a');
-                link.href = dataUrl;
-                link.download = file.name;
-                const downloadUrl = link.href;
+                // Create download link that preserves filename
+                fullDownloadLink = createDownloadLink(currentDataUrl, currentFileName);
                 
-                linkInput.value = downloadUrl;
-                
-                // Show result area
+                // Show result area immediately with loading state
+                linkInput.value = '';
+                linkInput.placeholder = 'Shortening link...';
+                linkLabel.innerHTML = '<span class="status">⏳</span> Generating short link...';
+                copyBtn.disabled = true;
+                downloadBtn.disabled = true;
                 resultArea.classList.add('show');
+                
+                // Automatically shorten the link
+                try {
+                    const response = await fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(fullDownloadLink));
+                    const shortUrl = await response.text();
+                    
+                    linkInput.value = shortUrl;
+                    linkInput.placeholder = '';
+                    linkLabel.innerHTML = '<span class="status">✓</span> Short Download Link';
+                    copyBtn.disabled = false;
+                    downloadBtn.disabled = false;
+                } catch (error) {
+                    // If shortening fails, show the original link
+                    linkInput.value = fullDownloadLink;
+                    linkInput.placeholder = '';
+                    linkLabel.innerHTML = '<span class="status">⚠️</span> Direct Download Link (shortening failed)';
+                    copyBtn.disabled = false;
+                    downloadBtn.disabled = false;
+                }
             };
             
             reader.readAsDataURL(file);
+        }
+
+        function createDownloadLink(dataUrl, filename) {
+            // Create an HTML page that auto-downloads the file with correct name
+            const downloadPage = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Download ${escapeHtml(filename)}</title></head><body><script>var a=document.createElement('a');a.href='${dataUrl}';a.download='${escapeJs(filename)}';document.body.appendChild(a);a.click();<\/script><p>Downloading ${escapeHtml(filename)}... If download doesn't start, <a href="${dataUrl}" download="${escapeHtml(filename)}">click here</a>.</p></body></html>`;
+            
+            return 'data:text/html;charset=utf-8,' + encodeURIComponent(downloadPage);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeJs(text) {
+            return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
         }
 
         function formatFileSize(bytes) {
@@ -379,18 +447,16 @@
 
         // Test download button
         downloadBtn.addEventListener('click', () => {
-            const link = document.createElement('a');
-            link.href = linkInput.value;
-            link.download = fileInfo.querySelector('.file-name').textContent;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            window.open(fullDownloadLink, '_blank');
         });
 
         // New file button
         newFileBtn.addEventListener('click', () => {
             resultArea.classList.remove('show');
             fileInput.value = '';
+            linkInput.value = '';
+            copyBtn.disabled = false;
+            downloadBtn.disabled = false;
         });
     </script>
 </body>
