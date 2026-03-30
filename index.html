@@ -22,7 +22,7 @@
     textarea {
       width: 100%;
       margin-top: 10px;
-      height: 80px;
+      height: 120px;
     }
   </style>
 </head>
@@ -31,7 +31,7 @@
 <div>
   <div id="drop">Drop file or click</div>
   <input type="file" id="fileInput" hidden>
-  <textarea id="output"></textarea>
+  <textarea id="output" readonly></textarea>
 </div>
 
 <script>
@@ -51,30 +51,46 @@ drop.ondrop = e => {
 };
 input.onchange = () => upload(input.files[0]);
 
-function upload(file) {
+async function upload(file) {
   const reader = new FileReader();
 
   reader.onload = async () => {
     const base64 = reader.result.split(",")[1];
 
-    output.value = "Uploading...";
+    output.value = `Uploading "${file.name}"...\n`;
 
-    await fetch(`https://api.github.com/repos/${USER}/${REPO}/dispatches`, {
-      method: "POST",
-      headers: {
-        "Authorization": "token " + TOKEN,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        event_type: "upload-file",
-        client_payload: {
-          name: file.name,
-          content: base64
-        }
-      })
-    });
+    try {
+      const response = await fetch(`https://api.github.com/repos/${USER}/${REPO}/dispatches`, {
+        method: "POST",
+        headers: {
+          "Authorization": "token " + TOKEN,
+          "Content-Type": "application/json",
+          "Accept": "application/vnd.github.everest-preview+json"
+        },
+        body: JSON.stringify({
+          event_type: "upload-file",
+          client_payload: {
+            name: file.name,
+            content: base64
+          }
+        })
+      });
 
-    output.value = `https://${USER}.github.io/${REPO}/files/${file.name}`;
+      console.log("GitHub API response:", response);
+
+      if (response.status === 204) {
+        output.value += "✅ File successfully sent to GitHub Actions!\n";
+        output.value += `Check Actions tab: https://github.com/${USER}/${REPO}/actions\n`;
+        output.value += `Expected file URL (after workflow finishes):\nhttps://${USER}.github.io/${REPO}/files/${file.name}`;
+      } else {
+        const text = await response.text();
+        output.value += `❌ GitHub API returned status ${response.status}\n`;
+        output.value += text;
+      }
+    } catch (err) {
+      console.error(err);
+      output.value += `❌ Error: ${err}`;
+    }
   };
 
   reader.readAsDataURL(file);
