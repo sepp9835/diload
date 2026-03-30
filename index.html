@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Uploader</title>
+  <style>
+    body {
+      background: #0d1117;
+      color: white;
+      font-family: Arial;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #drop {
+      border: 2px dashed #444;
+      padding: 40px;
+      cursor: pointer;
+      text-align: center;
+    }
+    textarea {
+      width: 100%;
+      margin-top: 10px;
+      height: 70px;
+    }
+  </style>
+</head>
+<body>
+
+<div>
+  <div id="drop">Drop file or click</div>
+  <input type="file" id="fileInput" hidden>
+  <textarea id="output"></textarea>
+</div>
+
+<script>
+const API = "https://YOUR-WORKER.your-subdomain.workers.dev";
+
+const drop = document.getElementById("drop");
+const input = document.getElementById("fileInput");
+const output = document.getElementById("output");
+
+drop.onclick = () => input.click();
+
+drop.ondrop = e => {
+  e.preventDefault();
+  handleFile(e.dataTransfer.files[0]);
+};
+
+drop.ondragover = e => e.preventDefault();
+
+input.onchange = () => handleFile(input.files[0]);
+
+async function handleFile(file) {
+  output.value = "Uploading...";
+
+  // Step 1: get upload URL
+  const res = await fetch(API + "/upload");
+  const data = await res.json();
+
+  // Step 2: upload file
+  await fetch(API + data.uploadURL, {
+    method: "PUT",
+    body: file
+  });
+
+  // Step 3: output download link
+  output.value = API + data.fileURL;
+}
+</script>
+
+</body>
+</html>
