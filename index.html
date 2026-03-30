@@ -1,58 +1,38 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Diload Uploader</title>
-  <style>
-    body {
-      background: #0d1117;
-      color: white;
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    #drop {
-      border: 2px dashed #444;
-      padding: 40px;
-      cursor: pointer;
-      text-align: center;
-    }
-    textarea {
-      width: 100%;
-      margin-top: 10px;
-      height: 120px;
-    }
-  </style>
-</head>
-<body>
-<div>
-  <h1>Diload Uploader</h1>
-  <div id="drop">Drop file or click</div>
-  <input type="file" id="fileInput" hidden>
-  <textarea id="output" readonly>⚠️ File uploads need backend workflow to work safely.</textarea>
-</div>
+name: Move uploads to /files
 
-<script>
-const drop = document.getElementById("drop");
-const input = document.getElementById("fileInput");
-const output = document.getElementById("output");
+on:
+  push:
+    branches:
+      - uploads  # frontend “uploads branch”
 
-drop.onclick = () => input.click();
-drop.ondragover = e => e.preventDefault();
-drop.ondrop = e => { e.preventDefault(); handleFile(input.files[0]); };
-input.onchange = () => handleFile(input.files[0]);
+jobs:
+  move-files:
+    runs-on: ubuntu-latest
 
-function handleFile(file) {
-  if (!file) return;
-  output.value = `✅ Selected file: ${file.name}\n`;
-  output.value += "⚠️ Uploading from browser directly is disabled due to GitHub security.\n";
-  output.value += "Please use the workflow that moves files from 'uploads' branch → '/files/' on main.\n";
-  output.value += "Once workflow runs, your file will be available at:\n";
-  output.value += `https://sepp9835.github.io/diload/files/${file.name}`;
-  console.log("File selected:", file.name);
-}
-</script>
-</body>
-</html>
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Prepare /files directory
+        run: mkdir -p files
+
+      - name: Move files from uploads branch
+        run: |
+          # Move everything except .github folder
+          for f in *; do
+            if [[ "$f" != ".github" ]]; then
+              mv "$f" files/ || true
+            fi
+          done
+
+      - name: Commit files to main
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}   # <- store your PAT here
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git checkout main
+          cp -r files/* files/ || true
+          git add files/*
+          git commit -m "Add uploaded files from workflow" || echo "No changes"
+          git push https://x-access-token:${GH_PAT}@github.com/${{ github.repository }} main
